@@ -187,25 +187,29 @@
                     <div class="grid md:grid-cols-2 gap-6">
                         <div>
                             <label class="block text-sm font-semibold text-gray-300 mb-2">성함</label>
-                            <input type="text" name="name" required placeholder="홍길동" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600">
+                            <input type="text" name="name" id="userName" required placeholder="홍길동" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600">
                         </div>
                         <div>
                             <label class="block text-sm font-semibold text-gray-300 mb-2">소속 부서</label>
-                            <input type="text" name="dept" required placeholder="OO팀" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600">
+                            <input type="text" name="dept" id="userDept" required placeholder="OO팀" class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600">
                         </div>
                     </div>
 
                     <div>
                         <label class="block text-sm font-semibold text-gray-300 mb-2">바꾸고 싶은 '불편한 업무' (WHAT)</label>
-                        <textarea name="idea" required rows="4" placeholder="예: 매일 수동으로 하는 OO 데이터 정리를 자동화하고 싶어요." class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600"></textarea>
+                        <textarea name="idea" id="userIdea" required rows="4" placeholder="예: 매일 수동으로 하는 OO 데이터 정리를 자동화하고 싶어요." class="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-indigo-500 transition text-white placeholder:text-gray-600"></textarea>
                         <p class="mt-2 text-xs text-gray-500 font-light">기술적인 방법이 아닌, '무엇'을 해결하고 싶은지 적어주세요.</p>
+                    </div>
+
+                    <div id="loadingIndicator" class="hidden p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 text-center">
+                        <i class="fas fa-spinner fa-spin mr-2"></i> 신청서를 전송 중입니다...
                     </div>
 
                     <div class="p-4 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 leading-relaxed">
                         <i class="fas fa-info-circle mr-2 text-sm"></i> 제출 시 상세 일정 및 진행 방식에 대해 슬랙 DM을 드립니다.
                     </div>
 
-                    <button type="submit" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg rounded-xl transition shadow-lg shadow-indigo-600/30 uppercase tracking-widest">
+                    <button type="submit" id="submitBtn" class="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black text-lg rounded-xl transition shadow-lg shadow-indigo-600/30 uppercase tracking-widest">
                         신청서 제출하기
                     </button>
                 </form>
@@ -240,24 +244,56 @@
     </footer>
 
     <script>
-        document.getElementById('applyForm').addEventListener('submit', function(e) {
+        /**
+         * 구글 Apps Script 연동 설정
+         * 배포 후 생성된 웹 앱 URL이 적용되었습니다.
+         */
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw1L5WHIdgsNjqkFsEBnve_X8DKlmPs2owAtwanMySV4HSseknoeWuTDwA_TlCxvqY/exec";
+
+        document.getElementById('applyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const formData = new FormData(this);
-            const data = {};
-            formData.forEach((value, key) => data[key] = value);
-
-            console.log('신청 데이터:', data);
-
-            // UI 전환
-            document.getElementById('formContainer').classList.add('hidden');
-            document.getElementById('successMessage').classList.remove('hidden');
+            const submitBtn = document.getElementById('submitBtn');
+            const loadingIndicator = document.getElementById('loadingIndicator');
             
-            // 신청 위치로 부드럽게 스크롤
-            window.scrollTo({
-                top: document.getElementById('apply').offsetTop - 100,
-                behavior: 'smooth'
-            });
+            // 폼 데이터 수집
+            const data = {
+                name: document.getElementById('userName').value,
+                dept: document.getElementById('userDept').value,
+                idea: document.getElementById('userIdea').value
+            };
+
+            // UI 상태 업데이트
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50');
+            loadingIndicator.classList.remove('hidden');
+
+            try {
+                // 구글 시트로 전송 (CORS 이슈 방지를 위해 no-cors 모드 사용)
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', 
+                    cache: 'no-cache',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                // 연동 성공 시 UI 전환 (no-cors의 경우 응답 확인이 불가능하므로 전송 시도 후 성공으로 간주)
+                document.getElementById('formContainer').classList.add('hidden');
+                document.getElementById('successMessage').classList.remove('hidden');
+                
+                window.scrollTo({
+                    top: document.getElementById('apply').offsetTop - 100,
+                    behavior: 'smooth'
+                });
+
+            } catch (error) {
+                console.error('전송 실패:', error);
+                alert('신청서 전송 중 오류가 발생했습니다. 다시 시도해 주세요.');
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50');
+                loadingIndicator.classList.add('hidden');
+            }
         });
     </script>
 
